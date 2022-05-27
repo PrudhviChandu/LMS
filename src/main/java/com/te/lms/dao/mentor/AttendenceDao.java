@@ -11,5 +11,5 @@ import com.te.lms.entity.mentor.EmployeeAttendence;
 public interface AttendenceDao extends JpaRepository<EmployeeAttendence, Integer> {
 public List<EmployeeAttendence>  findByAttendenceDate(LocalDate date);
 
-public EmployeeAttendence findByEmployee(String empId);
+public List<EmployeeAttendence>  findByEmployee(EmployeePrimaryInfo employeePrimaryInfo);
 }

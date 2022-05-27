@@ -7,5 +7,6 @@ import com.te.lms.entity.admin.Mentor;
 public interface AdminMentorDao extends JpaRepository<Mentor, String>{
 	
 	public Mentor findByMentorId(String  mentorId); 
+	
 
 }

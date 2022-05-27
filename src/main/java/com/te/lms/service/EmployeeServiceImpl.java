@@ -1,4 +1,5 @@
 
+
 package com.te.lms.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,8 @@ import com.te.lms.entity.admin.EmployeeRegistrationRequestList;
 import com.te.lms.entity.employee.EmployeePrimaryInfo;
 import com.te.lms.entity.mentor.EmployeeAttendence;
 import com.te.lms.exception.CustomException;
+import com.te.lms.security.dao.UserInfoDao;
+import com.te.lms.security.entity.UserInfo;
 
 @Service
 public class EmployeeServiceImpl implements EmployeeService {
@@ -24,6 +27,8 @@ public class EmployeeServiceImpl implements EmployeeService {
 
 	@Autowired
 	private AttendenceDao attendenceDao;
+	@Autowired
+	private UserInfoDao userInfoDao;
 
 	@Override
 	public EmployeePrimaryInfo addEmployee(EmployeePrimaryInfo primaryInfo) {
@@ -86,7 +91,6 @@ public class EmployeeServiceImpl implements EmployeeService {
 		dao.delete(primaryInfo);
 		return primaryInfo;
 	}
-
 	@Override
 	public Boolean reset(ResetPassword resetPassword) {
 		EmployeePrimaryInfo employeePrimaryInfo = dao.findByEmpId(resetPassword.getEmpId());
@@ -94,6 +98,9 @@ public class EmployeeServiceImpl implements EmployeeService {
 			if (resetPassword.getNewPassword().equals(resetPassword.getConfirmPassword())) {
 				employeePrimaryInfo.setEmpPassword(resetPassword.getConfirmPassword());
 				dao.save(employeePrimaryInfo);
+				UserInfo userInfo = userInfoDao.findByUserName(employeePrimaryInfo.getEmpName());
+				userInfo.setUserPassword(employeePrimaryInfo.getEmpPassword());
+				userInfoDao.save(userInfo);
 				return true;
 			}
 		}

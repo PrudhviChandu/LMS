@@ -1,5 +1,6 @@
 package com.te.lms.service.mentor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -13,10 +14,13 @@ import com.te.lms.dao.admin.AdminMentorDao;
 import com.te.lms.dao.mentor.MentorMockDao;
 import com.te.lms.dao.mentor.AttendenceDao;
 import com.te.lms.dto.admin.AllBatchesDto;
+import com.te.lms.dto.admin.BatchAttendenceDto;
 import com.te.lms.dto.admin.SearchByIdDto;
 import com.te.lms.dto.employee.ResetPassword;
+import com.te.lms.dto.mentor.AddMockDto;
 import com.te.lms.dto.mentor.EmployeeAttendenceDto;
 import com.te.lms.dto.mentor.EmployeeDashboardDto;
+import com.te.lms.dto.mentor.MockRatingsDto;
 import com.te.lms.dto.mentor.ResetMentorPassword;
 import com.te.lms.entity.admin.Batch;
 import com.te.lms.entity.admin.Mentor;
@@ -25,6 +29,10 @@ import com.te.lms.entity.employee.EmployeeExperienceInfo;
 import com.te.lms.entity.employee.EmployeePrimaryInfo;
 import com.te.lms.entity.mentor.EmployeeAttendence;
 import com.te.lms.entity.mentor.MockDetails;
+import com.te.lms.exception.CustomException;
+import com.te.lms.ourenum.MockType;
+import com.te.lms.security.dao.UserInfoDao;
+import com.te.lms.security.entity.UserInfo;
 
 @Service
 public class MentorServiceImpl implements MentorService {
@@ -41,53 +49,100 @@ public class MentorServiceImpl implements MentorService {
 	private AdminMentorDao mentorDao;
 	@Autowired
 	private AdminBatchDao batchDao;
-	/*
-	 * @Override public Boolean attendence(List<EmployeeAttendenceDto>
-	 * attendenceDto) {
-	 * 
-	 * for (EmployeeAttendenceDto employeeAttendenceDto : attendenceDto) {
-	 * List<EmployeeAttendence> findByAttendenceDate = attendenceDao
-	 * .findByAttendenceDate(employeeAttendenceDto.getAttendenceDate()); if
-	 * (findByAttendenceDate.isEmpty()) { for (EmployeeAttendenceDto
-	 * employeeAttendenceDto2 : attendenceDto) { EmployeeAttendence attendenceEntity
-	 * = new EmployeeAttendence();
-	 * attendenceEntity.setAttendenceDate(employeeAttendenceDto2.getAttendenceDate()
-	 * );
-	 * attendenceEntity.setAttendenceNoon(employeeAttendenceDto2.getAttendenceNoon()
-	 * ); attendenceEntity.setAttendenceMorning(employeeAttendenceDto2.
-	 * getAttendenceMorning());
-	 * attendenceEntity.setEmployee(employeeDao.findByEmpId(employeeAttendenceDto2.
-	 * getEmpId())); attendenceDao.save(attendenceEntity); } } else{
-	 * attendenceDao.findByEmployee(employeeDao.findByEmpId(employeeAttendenceDto.
-	 * getEmpId()));
-	 * 
-	 * } } }
-	 */
+	@Autowired
+	private UserInfoDao userInfoDao;
 
 	@Override
-	public MockDetails addMock(MockDetails mockDetails) {
-		MockDetails mockDetails2 = mockDao.findByMockId(mockDetails.getMockId());
-		if (mockDetails2 != null) {
-			return null;
-		} else {
-			return mockDao.save(mockDetails);
+	public Boolean attendence(List<EmployeeAttendenceDto> attendenceDto) {
+		for (EmployeeAttendenceDto employeeAttendenceDto : attendenceDto) {
+			List<EmployeeAttendence> findByAttendenceDate = attendenceDao
+					.findByAttendenceDate(employeeAttendenceDto.getAttendenceDate());
+			if (findByAttendenceDate.isEmpty()) {
+				for (EmployeeAttendenceDto employeeAttendenceDto2 : attendenceDto) {
+					EmployeeAttendence attendenceEntity = new EmployeeAttendence();
+					attendenceEntity.setAttendenceDate(employeeAttendenceDto2.getAttendenceDate());
+					attendenceEntity.setAttendenceNoon(employeeAttendenceDto2.getAttendenceNoon());
+					attendenceEntity.setAttendenceMorning(employeeAttendenceDto2.getAttendenceMorning());
+					attendenceEntity.setEmployee(employeeDao.findByEmpId(employeeAttendenceDto2.getEmpId()));
+					attendenceDao.save(attendenceEntity);
+				}
+			} else {
+				List<EmployeeAttendence> list = attendenceDao
+						.findByEmployee(employeeDao.findByEmpId(employeeAttendenceDto.getEmpId()));
+				for (EmployeeAttendence attendenceEntity2 : list) {
+					attendenceEntity2.setAttendenceNoon(employeeAttendenceDto.getAttendenceNoon());
+					attendenceEntity2.setAttendenceMorning(attendenceEntity2.getAttendenceMorning());
+					attendenceEntity2.setAttendenceKey(attendenceEntity2.getAttendenceKey());
+					attendenceDao.save(attendenceEntity2);
+				}
+			}
 		}
+		return true;
 	}
 
 	@Override
-	public MockDetails createMock(MockDetails mockDetails) {
-		MockDetails mockDetails2 = mockDao.findByMockId(mockDetails.getMockId());
-		if (mockDetails2 != null) {
-			mockDetails.setBatchId(mockDetails2.getBatchId());
-			mockDetails.setMockNo(mockDetails2.getMockNo());
-			mockDetails.setTechnology(mockDetails2.getTechnology());
-			mockDetails.setBatchPanel(mockDetails2.getBatchPanel());
-			mockDetails.setMockDate(mockDetails2.getMockDate());
-			mockDetails.setEmployeeEmpId(mockDetails2.getEmployeeEmpId());
-			return mockDao.save(mockDetails);
+	public AddMockDto addMock(AddMockDto addMockDto) {
+		List<EmployeePrimaryInfo> employeePrimaryInfos = employeeDao
+				.findByInBatch(batchDao.findByBatchId(addMockDto.getBatchId()));
+		if (employeePrimaryInfos.isEmpty()) {
+			throw new CustomException("No employees are found in that batch");
 		} else {
-			return null;
+			for (EmployeePrimaryInfo employeePrimaryInfo : employeePrimaryInfos) {
+				MockDetails mockDetails = new MockDetails();
+				mockDetails.setEmployeeEmpId(employeePrimaryInfo.getEmpId());
+				mockDetails.setMockDate(addMockDto.getMockDate());
+				mockDetails.setMockOn(addMockDto.getMockOn());
+				mockDetails.setMockType(addMockDto.getMockType());
+				mockDetails.setMockPanel(addMockDto.getMockPanel());
+				mockDao.save(mockDetails);
+			}
 		}
+		return addMockDto;
+	}
+
+	@Override
+	public Boolean mockRating(MockRatingsDto mockRatingsDto) {
+		Boolean flag = false;
+		List<MockDetails> findByEmployeeEmpId = mockDao.findByEmployeeEmpId(mockRatingsDto.getEmployeeEmpId());
+		if (mockRatingsDto.getMockType().equals(MockType.MOCK)) {
+			for (MockDetails mockDetails : findByEmployeeEmpId) {
+				if (mockDetails.getMockOn().equals(mockRatingsDto.getMockOn()) && mockDetails.getMockType() != null) {// mock
+																														// 1
+																														// i.e.
+																														// mock
+																														// on
+																														// core
+																														// java
+					mockDetails.setMockType(mockRatingsDto.getMockType());
+					mockDetails.setMockOn(mockRatingsDto.getMockOn());
+					mockDetails.setPractical(mockRatingsDto.getPractical());
+					mockDetails.setTheoritical(mockRatingsDto.getTheoritical());
+					mockDetails.setMockRating(mockRatingsDto.getMockRating());
+					mockDetails.setMocktakenBy(mockRatingsDto.getMocktakenBy());
+					mockDetails.setMockFeedback(mockRatingsDto.getMockFeedback());
+					mockDao.save(mockDetails);
+					flag = true;
+				}
+			}
+		} else {// for re mock
+			for (MockDetails mockDetails : findByEmployeeEmpId) {
+				if (mockDetails.getMockOn().equals(mockRatingsDto.getMockOn())) {
+					MockDetails mockDetail = new MockDetails();// Mock and remock are seperate objects
+
+					mockDetail.setMockType(mockRatingsDto.getMockType());
+					mockDetail.setMockOn(mockRatingsDto.getMockOn());
+					mockDetail.setPractical(mockRatingsDto.getPractical());
+					mockDetail.setTheoritical(mockRatingsDto.getTheoritical());
+					mockDetail.setMockRating(mockRatingsDto.getMockRating());
+					mockDetail.setMocktakenBy(mockRatingsDto.getMocktakenBy());
+					mockDetail.setMockFeedback(mockRatingsDto.getMockFeedback());
+					mockDetail.setEmployeeEmpId(mockDetails.getEmployeeEmpId());
+					mockDao.save(mockDetail);
+					flag = true;
+				}
+			}
+		}
+		return flag;
 	}
 
 	@Override
@@ -111,8 +166,11 @@ public class MentorServiceImpl implements MentorService {
 			if (resetPassword.getNewPassword().equals(resetPassword.getConfirmPassword())) {
 				mentor.setPassword(resetPassword.getConfirmPassword());
 				mentorDao.save(mentor);
+				UserInfo userInfo = userInfoDao.findByUserName(mentor.getMentorName());
+				userInfo.setUserPassword(mentor.getPassword());
+				userInfoDao.save(userInfo);
 				return true;
-			}
+			} 
 		}
 		return false;
 	}
@@ -154,6 +212,30 @@ public class MentorServiceImpl implements MentorService {
 		allBatchesDto.setBatchTechnologys(batch.getBatchTechnologys());
 		allBatchesDto.setMentorName(batch.getBatchMentor().getMentorName());
 		return allBatchesDto;
+	}
+
+	@Override
+	public List<BatchAttendenceDto> batchAttendence(BatchAttendenceDto batchAttendenceDto) {
+		List<BatchAttendenceDto> attendenceDtos = new ArrayList<>();
+		List<EmployeePrimaryInfo> employeePrimaryInfos = employeeDao
+				.findByInBatch(batchDao.findByBatchId(batchAttendenceDto.getBatchId()));
+		List<EmployeeAttendence> attendences = attendenceDao
+				.findByAttendenceDate(batchAttendenceDto.getAttendenceDate());
+		for (EmployeePrimaryInfo employeePrimaryInfo : employeePrimaryInfos) {
+			BatchAttendenceDto attendenceDto = new BatchAttendenceDto();
+			if (attendences != null) {
+				for (EmployeeAttendence employeeAttendence : attendences) {
+					if (employeeAttendence.getEmployee().getEmpId().equals(employeePrimaryInfo.getEmpId())) {
+						attendenceDto.setAttendenceMorning(employeeAttendence.getAttendenceMorning());
+						attendenceDto.setAttendenceNoon(employeeAttendence.getAttendenceNoon());
+					}
+				}
+			}
+			attendenceDto.setEmpId(employeePrimaryInfo.getEmpId());
+			attendenceDto.setEmpName(employeePrimaryInfo.getEmpName());
+			attendenceDtos.add(attendenceDto);
+		}
+		return attendenceDtos;
 	}
 
 }

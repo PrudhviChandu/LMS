@@ -7,6 +7,7 @@ import com.te.lms.dto.admin.AddMentorDto;
 import com.te.lms.dto.admin.AllBatchesDto;
 import com.te.lms.dto.admin.AllMentorsDto;
 import com.te.lms.dto.admin.ApprovalDto;
+import com.te.lms.dto.admin.BatchAttendenceDto;
 import com.te.lms.dto.admin.SearchByIdDto;
 import com.te.lms.dto.employee.EmployeeInactiveDto;
 import com.te.lms.entity.admin.Batch;
@@ -40,5 +41,7 @@ public interface AdminService {
 	public List<AllMentorsDto> getAllMentors();
 
 	public AllMentorsDto converMentorDto(Mentor mentor);
+	
+	//public Boolean batchAttendence(List<BatchAttendenceDto> batchAttendenceDtos);
 
 }

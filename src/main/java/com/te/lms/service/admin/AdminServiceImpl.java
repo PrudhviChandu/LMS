@@ -3,7 +3,6 @@ package com.te.lms.service.admin;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +23,10 @@ import com.te.lms.entity.admin.Mentor;
 import com.te.lms.entity.employee.EmployeePrimaryInfo;
 import com.te.lms.exception.CustomException;
 import com.te.lms.ourenum.Status;
+import com.te.lms.ourenum.UserRoles;
 import com.te.lms.password.GeneratePassword;
+import com.te.lms.security.dao.UserInfoDao;
+import com.te.lms.security.entity.UserInfo;
 import com.te.lms.service.email.EmailService;
 
 @Service
@@ -40,11 +42,14 @@ public class AdminServiceImpl implements AdminService {
 
 	@Autowired
 	private AdminApproveDao approveDao;
+	@Autowired
+	private UserInfoDao userInfoDao;
 
 	@Override
 	public AddMentorDto addMentor(AddMentorDto addMentorDto) {
 		Mentor mentor1 = new Mentor();
-		 GeneratePassword pwd = new GeneratePassword();
+		UserInfo userInfo = new UserInfo();
+		GeneratePassword pwd = new GeneratePassword();
 		String tempPassword = pwd.passwordGeneraotr(10);
 		mentor1.setLastLogin(addMentorDto.getLastLogin());
 		mentor1.setMentorEmail(addMentorDto.getMentorEmail());
@@ -54,6 +59,10 @@ public class AdminServiceImpl implements AdminService {
 		mentor1.setUsername(addMentorDto.getUsername());
 		mentor1.setPassword(tempPassword);
 		dao.save(mentor1);
+		userInfo.setUserName(addMentorDto.getMentorName());
+		userInfo.setUserPassword(tempPassword);
+		userInfo.setUserRoles("ROLE_MENTOR");
+		userInfoDao.save(userInfo);
 		emailService.sendEmail(mentor1.getMentorEmail(), "spring test password:",
 				"temppassword" + mentor1.getPassword());
 		return addMentorDto;
@@ -105,25 +114,24 @@ public class AdminServiceImpl implements AdminService {
 
 	}
 
-	
 	@Override
 	public AddBatchDto updateBatch(AddBatchDto updateBatch) {
-		
-			Batch batch2 = batchDao.findByBatchId(updateBatch.getBatchId());
-			if (batch2 != null) {
-				batch2.setBatch_status(updateBatch.getBatch_status());
-				batch2.setBatchEndDate(updateBatch.getBatchStartDate());
-				batch2.setBatchName(updateBatch.getBatchName());
-				batch2.setBatchStartDate(updateBatch.getBatchStartDate());
-				batch2.setBatchTechnologys(updateBatch.getBatchTechnologys());
-				batch2.setBatchMentor(dao.findByMentorId(updateBatch.getMentorId()));
-				batchDao.save(batch2);
-				return updateBatch;
-			} else {
-				throw new CustomException("Batch Doesn't Exist For The Entered Id");
-			}
-		} 
-	
+
+		Batch batch2 = batchDao.findByBatchId(updateBatch.getBatchId());
+		if (batch2 != null) {
+			batch2.setBatch_status(updateBatch.getBatch_status());
+			batch2.setBatchEndDate(updateBatch.getBatchStartDate());
+			batch2.setBatchName(updateBatch.getBatchName());
+			batch2.setBatchStartDate(updateBatch.getBatchStartDate());
+			batch2.setBatchTechnologys(updateBatch.getBatchTechnologys());
+			batch2.setBatchMentor(dao.findByMentorId(updateBatch.getMentorId()));
+			batchDao.save(batch2);
+			return updateBatch;
+		} else {
+			throw new CustomException("Batch Doesn't Exist For The Entered Id");
+		}
+	}
+
 	@Override
 	public Boolean deleteBatch(String batchId) {
 		Batch batch = batchDao.findByBatchId(batchId);
@@ -154,15 +162,15 @@ public class AdminServiceImpl implements AdminService {
 	@Override
 	public SearchByIdDto searchById(String id) {
 		Mentor byMentorId = dao.findByMentorId(id);
-		SearchByIdDto byIdDto=new SearchByIdDto();
+		SearchByIdDto byIdDto = new SearchByIdDto();
 		if (byMentorId != null) {
 			byIdDto.setId(byMentorId.getMentorId());
 			byIdDto.setEmpDesignation("mentor");
 			byIdDto.setName(byMentorId.getMentorName());
 			byIdDto.setSkills(byMentorId.getTechnicalSkills());
 			byIdDto.setEmail(byMentorId.getMentorEmail());
-            return byIdDto;
-		}else {
+			return byIdDto;
+		} else {
 			EmployeePrimaryInfo primaryInfo = employeeDao.findByEmpId(id);
 			byIdDto.setEmail(primaryInfo.getEmpMail());
 			byIdDto.setId(primaryInfo.getEmpMail());
@@ -170,11 +178,9 @@ public class AdminServiceImpl implements AdminService {
 			byIdDto.setEmpStatus(primaryInfo.getEmpStatus());
 			byIdDto.setName(primaryInfo.getEmpName());
 			byIdDto.setEmpGender(primaryInfo.getEmpGender());
-            return byIdDto;
+			return byIdDto;
 		}
 	}
-
-	
 
 	@Override
 	public Boolean approveEmp(ApprovalDto approval) {
@@ -193,11 +199,17 @@ public class AdminServiceImpl implements AdminService {
 			employeePrimaryInfo.setEmpStatus(Status.ACTIVE);
 			employeePrimaryInfo.setInBatch(findByBatchId);
 			employeeDao.save(employeePrimaryInfo);
+
 			requestList.setEmployee(employeePrimaryInfo);
 			approveDao.save(requestList);
 			String email = requestList.getEmployee().getEmpMail();
 			emailService.sendEmail(email, "Registration Approval Mail",
 					"you have been registered .your temporary password is:" + passwordGenerator);
+			UserInfo userInfo = new UserInfo();
+			userInfo.setUserName(employeePrimaryInfo.getEmpName());
+			userInfo.setUserPassword(passwordGenerator);
+			userInfo.setUserRoles("ROLE_EMPLOYEE");
+			userInfoDao.save(userInfo);
 			return true;
 		}
 		return false;
@@ -216,15 +228,13 @@ public class AdminServiceImpl implements AdminService {
 				"We are sorry to inform that your registration could not be approved.");
 		return true;
 	}
-	
-	
-	  public List<AllBatchesDto> getAllBatches() {
-	     return batchDao.findAll().stream().map(this::convertBatchDto).collect(Collectors.toList());
-	  }
-	 
-	
+
+	public List<AllBatchesDto> getAllBatches() {
+		return batchDao.findAll().stream().map(this::convertBatchDto).collect(Collectors.toList());
+	}
+
 	public AllBatchesDto convertBatchDto(Batch batch) {
-		AllBatchesDto allBatchesDto=new AllBatchesDto();
+		AllBatchesDto allBatchesDto = new AllBatchesDto();
 		allBatchesDto.setBatchEndDate(batch.getBatchEndDate());
 		allBatchesDto.setBatchId(batch.getBatchId());
 		allBatchesDto.setBatchName(batch.getBatchName());
@@ -233,7 +243,7 @@ public class AdminServiceImpl implements AdminService {
 		allBatchesDto.setBatchTechnologys(batch.getBatchTechnologys());
 		allBatchesDto.setMentorName(batch.getBatchMentor().getMentorName());
 		return allBatchesDto;
-		}
+	}
 
 	@Override
 	public List<AllMentorsDto> getAllMentors() {
@@ -242,13 +252,14 @@ public class AdminServiceImpl implements AdminService {
 
 	@Override
 	public AllMentorsDto converMentorDto(Mentor mentor) {
-        AllMentorsDto allMentorsDto=new AllMentorsDto();
-        allMentorsDto.setLastLogin(mentor.getLastLogin());
-        allMentorsDto.setMentorEmail(mentor.getMentorEmail());
-        allMentorsDto.setMentorId(mentor.getMentorId());
-        allMentorsDto.setMentorName(mentor.getMentorName());
-        allMentorsDto.setTechnicalSkills(mentor.getTechnicalSkills());
-        allMentorsDto.setUsername(mentor.getUsername());
+		AllMentorsDto allMentorsDto = new AllMentorsDto();
+		allMentorsDto.setLastLogin(mentor.getLastLogin());
+		allMentorsDto.setMentorEmail(mentor.getMentorEmail());
+		allMentorsDto.setMentorId(mentor.getMentorId());
+		allMentorsDto.setMentorName(mentor.getMentorName());
+		allMentorsDto.setTechnicalSkills(mentor.getTechnicalSkills());
+		allMentorsDto.setUsername(mentor.getUsername());
 		return allMentorsDto;
 	}
+
 }

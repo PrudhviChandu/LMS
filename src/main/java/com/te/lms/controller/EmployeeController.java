@@ -25,7 +25,7 @@ public class EmployeeController {
 	@Autowired
 	private EmployeeService service;
 
-	@PostMapping("/employee")
+	@PostMapping("/register")
 	public ResponseEntity<Response> add(@RequestBody EmployeePrimaryInfo employeePrimaryInfo) {
 		Response response=new Response();
 		EmployeePrimaryInfo employee = service.addEmployee(employeePrimaryInfo);
@@ -89,7 +89,7 @@ public class EmployeeController {
 	@PostMapping("/password")
 	public ResponseEntity<Response> reset(@RequestBody ResetPassword password) {
 		Response response=new Response();
-		if(service.reset(password)) {
+		if(Boolean.TRUE.equals(service.reset(password))) {
 			response.setIsError(false);
 			response.setMsg("Password was Reseted Successfully");
 			response.setObject(password);

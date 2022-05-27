@@ -1,4 +1,4 @@
-package com.te.lms.entity.admin;
+	package com.te.lms.entity.admin;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
